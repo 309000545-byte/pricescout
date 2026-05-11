@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PriceScout - 智能电商价格采集与对比工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1a1a2e',
+                        secondary: '#16213e',
+                        accent: '#0066ff',
+                        highlight: '#00d9ff',
+                        success: '#00ff88',
+                        warning: '#ff6b6b',
+                        dark: '#0f0f23'
+                    },
+                    fontFamily: {
+                        'display': ['Orbitron', 'sans-serif'],
+                        'body': ['Inter', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, #00d9ff, #0066ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .glass-card {
+            background: rgba(22, 33, 62, 0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 102, 255, 0.2);
+            border-color: rgba(0, 217, 255, 0.3);
+        }
+
+        .glow-button {
+            background: linear-gradient(135deg, #0066ff, #00d9ff);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glow-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .glow-button:hover::before {
+            left: 100%;
+        }
+
+        .glow-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(0, 102, 255, 0.5);
+        }
+
+        .hero-bg {
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 102, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 50%, rgba(0, 217, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 100%, rgba(0, 255, 136, 0.05) 0%, transparent 50%);
+        }
+
+        .grid-bg {
+            background-image: 
+                linear-gradient(rgba(0, 102, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 102, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+        }
+
+        .table-container {
+            background: rgba(22, 33, 62, 0.4);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .table-header {
+            background: linear-gradient(90deg, rgba(0, 102, 255, 0.2), rgba(0, 217, 255, 0.1));
+        }
+
+        .table-row:hover {
+            background: rgba(0, 102, 255, 0.1);
+        }
+
+        .price-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .platform-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .jd-badge {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff4444;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+
+        .taobao-badge {
+            background: rgba(255, 102, 0, 0.2);
+            color: #ff6600;
+            border: 1px solid rgba(255, 102, 0, 0.3);
+        }
+
+        .pdd-badge {
+            background: rgba(255, 0, 128, 0.2);
+            color: #ff0080;
+            border: 1px solid rgba(255, 0, 128, 0.3);
+        }
+
+        .recommendation-card {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 102, 255, 0.1));
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .recommendation-card::before {
+            content: '🏆';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 60px;
+            opacity: 0.1;
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(0, 217, 255, 0.2);
+            border-top: 3px solid #00d9ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.1), rgba(0, 217, 255, 0.05));
+            border: 1px solid rgba(0, 217, 255, 0.2);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(22, 33, 62, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 102, 255, 0.5);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 102, 255, 0.7);
+        }
+    </style>
+</head>
+<body class="font-body text-white">
+    <!-- Header -->
+    <header class="glass-card sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center">
+                        <i class="fas fa-search text-white text-lg"></i>
+                    </div>
+                    <span class="font-display text-xl font-bold gradient-text">PriceScout</span>
+                </div>
+                <nav class="hidden md:flex items-center space-x-8">
+                    <a href="#features" class="text-gray-300 hover:text-highlight transition-colors">功能特性</a>
+                    <a href="#demo" class="text-gray-300 hover:text-highlight transition-colors">在线演示</a>
+                    <a href="#about" class="text-gray-300 hover:text-highlight transition-colors">关于我们</a>
+                </nav>
+                <div class="flex items-center space-x-4">
+                    <a href="https://github.com" target="_blank" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fab fa-github text-2xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero-bg grid-bg min-h-[70vh] flex items-center py-20">
+        <div class="container mx-auto px-6">
+            <div class="text-center max-w-4xl mx-auto">
+                <div class="inline-block px-4 py-2 bg-accent/20 rounded-full border border-accent/30 mb-8">
+                    <span class="text-highlight text-sm font-medium">🛒 智能电商比价工具</span>
+                </div>
+                <h1 class="font-display text-5xl md:text-7xl font-bold mb-6">
+                    <span class="gradient-text">PriceScout</span>
+                </h1>
+                <p class="text-2xl md:text-3xl text-gray-300 mb-4 font-light">
+                    智能电商价格采集与横向对比
+                </p>
+                <p class="text-gray-400 mb-12 max-w-2xl mx-auto">
+                    采集京东、淘宝、拼多多等主流电商平台商品数据，智能分析价格趋势，精准推荐高性价比商品
+                </p>
+                <div class="flex flex-wrap justify-center gap-4 mb-12">
+                    <div class="glass-card px-6 py-3 rounded-lg">
+                        <i class="fas fa-download text-highlight mr-2"></i>
+                        <span class="text-white">批量采集</span>
+                    </div>
+                    <div class="glass-card px-6 py-3 rounded-lg">
+                        <i class="fas fa-balance-scale text-highlight mr-2"></i>
+                        <span class="text-white">横向对比</span>
+                    </div>
+                    <div class="glass-card px-6 py-3 rounded-lg">
+                        <i class="fas fa-chart-line text-highlight mr-2"></i>
+                        <span class="text-white">趋势分析</span>
+                    </div>
+                    <div class="glass-card px-6 py-3 rounded-lg">
+                        <i class="fas fa-star text-highlight mr-2"></i>
+                        <span class="text-white">智能推荐</span>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <a href="#demo" class="glow-button px-8 py-4 rounded-lg text-white font-semibold text-lg">
+                        <i class="fas fa-play mr-2"></i>开始演示
+                    </a>
+                    <a href="#features" class="glass-card px-8 py-4 rounded-lg text-white font-semibold text-lg hover:border-highlight transition-colors">
+                        <i class="fas fa-info-circle mr-2"></i>了解更多
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="py-20">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="font-display text-4xl font-bold mb-4">
+                    <span class="gradient-text">在线演示</span>
+                </h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    输入关键词，体验完整的价格采集与对比分析功能
+                </p>
+            </div>
+
+            <!-- Search Controls -->
+            <div class="glass-card max-w-4xl mx-auto p-8 mb-12">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-search mr-2 text-highlight"></i>搜索关键词
+                    </label>
+                    <div class="flex flex-col md:flex-row gap-4">
+                        <input 
+                            type="text" 
+                            id="keywordInput" 
+                            placeholder="例如：无线蓝牙耳机、机械键盘、运动鞋"
+                            class="flex-1 bg-dark/50 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-highlight transition-colors"
+                        >
+                        <button onclick="performSearch()" class="glow-button px-8 py-3 rounded-lg text-white font-semibold">
+                            <i class="fas fa-search mr-2"></i>搜索
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-300 mb-3">
+                        <i class="fas fa-store mr-2 text-highlight"></i>选择平台
+                    </label>
+                    <div class="flex flex-wrap gap-4">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" id="jdCheck" checked class="w-5 h-5 text-accent bg-dark border-gray-600 rounded focus:ring-highlight">
+                            <span class="platform-badge jd-badge">京东</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" id="taobaoCheck" checked class="w-5 h-5 text-accent bg-dark border-gray-600 rounded focus:ring-highlight">
+                            <span class="platform-badge taobao-badge">淘宝</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" id="pddCheck" checked class="w-5 h-5 text-accent bg-dark border-gray-600 rounded focus:ring-highlight">
+                            <span class="platform-badge pdd-badge">拼多多</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="text-sm text-gray-400">
+                        <i class="fas fa-lightbulb mr-2 text-yellow-400"></i>
+                        提示：演示使用示例数据，真实采集需要网络连接
+                    </div>
+                    <button onclick="loadDemoData()" class="text-highlight hover:text-white transition-colors text-sm">
+                        <i class="fas fa-database mr-1"></i>加载示例数据
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden max-w-4xl mx-auto text-center py-20">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-400">正在采集数据...</p>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="hidden fade-in">
+                <!-- Statistics Cards -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="stat-card rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-highlight mb-1" id="totalCount">0</div>
+                        <div class="text-sm text-gray-400">商品总数</div>
+                    </div>
+                    <div class="stat-card rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-success mb-1" id="minPrice">¥0</div>
+                        <div class="text-sm text-gray-400">最低价格</div>
+                    </div>
+                    <div class="stat-card rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-warning mb-1" id="maxPrice">¥0</div>
+                        <div class="text-sm text-gray-400">最高价格</div>
+                    </div>
+                    <div class="stat-card rounded-lg p-4 text-center">
+                        <div class="text-3xl font-bold text-highlight mb-1" id="avgPrice">¥0</div>
+                        <div class="text-sm text-gray-400">平均价格</div>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="glass-card p-6">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-chart-bar text-highlight mr-2"></i>价格分布
+                        </h3>
+                        <div class="chart-container">
+                            <canvas id="priceChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-card p-6">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-chart-pie text-highlight mr-2"></i>平台分布
+                        </h3>
+                        <div class="chart-container">
+                            <canvas id="platformChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="glass-card p-8 mb-8">
+                    <h3 class="text-xl font-semibold mb-6">
+                        <i class="fas fa-crown text-yellow-400 mr-2"></i>🏆 性价比 TOP 3 推荐
+                    </h3>
+                    <div id="recommendationsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    </div>
+                </div>
+
+                <!-- Products Table -->
+                <div class="glass-card overflow-hidden">
+                    <div class="table-header p-4">
+                        <h3 class="text-lg font-semibold">
+                            <i class="fas fa-list text-highlight mr-2"></i>商品列表 (按价格排序)
+                        </h3>
+                    </div>
+                    <div class="table-container overflow-x-auto max-h-[600px] overflow-y-auto">
+                        <table class="w-full">
+                            <thead class="sticky top-0 bg-secondary">
+                                <tr class="border-b border-gray-700">
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">平台</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">商品名称</th>
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-300">价格</th>
+                                    <th class="px-4 py-3 text-right text-sm font-medium text-gray-300">销量</th>
+                                    <th class="px-4 py-3 text-center text-sm font-medium text-gray-300">评分</th>
+                                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-300">店铺</th>
+                                    <th class="px-4 py-3 text-center text-sm font-medium text-gray-300">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody" class="divide-y divide-gray-700">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="font-display text-4xl font-bold mb-4">
+                    <span class="gradient-text">核心功能</span>
+                </h2>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    强大的数据采集与分析能力，为您提供全方位的电商价格洞察
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="glass-card p-8">
+                    <div class="w-14 h-14 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center mb-6">
+                        <i class="fas fa-download text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">批量数据采集</h3>
+                    <p class="text-gray-400">
+                        支持京东、淘宝、拼多多等主流电商平台，自动批量抓取商品名称、价格、销量、评分等关键信息
+                    </p>
+                </div>
+
+                <div class="glass-card p-8">
+                    <div class="w-14 h-14 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center mb-6">
+                        <i class="fas fa-balance-scale text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">智能去重对比</h3>
+                    <p class="text-gray-400">
+                        自动清洗数据，智能识别重复商品，按价格从低到高排序，轻松实现商品横向对比
+                    </p>
+                </div>
+
+                <div class="glass-card p-8">
+                    <div class="w-14 h-14 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center mb-6">
+                        <i class="fas fa-chart-line text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">价格趋势分析</h3>
+                    <p class="text-gray-400">
+                        可视化价格分布图表，清晰展示各平台价格区间分布，洞察市场行情
+                    </p>
+                </div>
+
+                <div class="glass-card p-8">
+                    <div class="w-14 h-14 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center mb-6">
+                        <i class="fas fa-star text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">性价比推荐</h3>
+                    <p class="text-gray-400">
+                        基于评分、销量、价格综合计算性价比指数，智能推荐高性价比商品
+                    </p>
+                </div>
+
+                <div class="glass-card p-8">
+                    <div class="w-14 h-14 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center mb-6">
+                        <i class="fas fa-code text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">命令行工具</h3>
+                    <p class="text-gray-400">
+                        提供功能完整的CLI工具，支持脚本自动化，一行命令完成数据采集与导出
+                    </p>
+                </div>
+
+                <div class="glass-card p-8">
+                    <div class="w-14 h-14 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center mb-6">
+                        <i class="fas fa-file-export text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold mb-3">多格式导出</h3>
+                    <p class="text-gray-400">
+                        支持JSON、CSV等多种格式导出，方便后续数据分析和二次处理
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="py-20">
+        <div class="container mx-auto px-6">
+            <div class="glass-card max-w-4xl mx-auto p-12 text-center">
+                <h2 class="font-display text-3xl font-bold mb-6">
+                    <span class="gradient-text">关于 PriceScout</span>
+                </h2>
+                <p class="text-gray-300 mb-6 leading-relaxed">
+                    PriceScout 是一款专为消费者和商家设计的智能电商价格采集工具。我们致力于提供准确、快速、全面的电商价格数据，帮助用户在购物时做出更明智的决策。
+                </p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                    <div>
+                        <div class="text-3xl font-bold text-highlight">3+</div>
+                        <div class="text-sm text-gray-400">支持平台</div>
+                    </div>
+                    <div>
+                        <div class="text-3xl font-bold text-highlight">100+</div>
+                        <div class="text-sm text-gray-400">数据字段</div>
+                    </div>
+                    <div>
+                        <div class="text-3xl font-bold text-highlight">实时</div>
+                        <div class="text-sm text-gray-400">数据更新</div>
+                    </div>
+                    <div>
+                        <div class="text-3xl font-bold text-highlight">免费</div>
+                        <div class="text-sm text-gray-400">开源工具</div>
+                    </div>
+                </div>
+                <div class="flex justify-center gap-4">
+                    <a href="#" class="glow-button px-6 py-3 rounded-lg text-white font-semibold">
+                        <i class="fab fa-github mr-2"></i>GitHub
+                    </a>
+                    <a href="#" class="glass-card px-6 py-3 rounded-lg text-white font-semibold hover:border-highlight transition-colors">
+                        <i class="fas fa-book mr-2"></i>使用文档
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-800 py-12">
+        <div class="container mx-auto px-6">
+            <div class="text-center">
+                <div class="flex items-center justify-center space-x-3 mb-4">
+                    <div class="w-8 h-8 bg-gradient-to-br from-accent to-highlight rounded-lg flex items-center justify-center">
+                        <i class="fas fa-search text-white text-sm"></i>
+                    </div>
+                    <span class="font-display text-lg font-bold gradient-text">PriceScout</span>
+                </div>
+                <p class="text-gray-400 text-sm mb-4">
+                    智能电商价格采集与对比工具 - 让购物更明智
+                </p>
+                <div class="flex justify-center space-x-6 mb-6">
+                    <a href="#" class="text-gray-400 hover:text-highlight transition-colors">
+                        <i class="fab fa-github text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-highlight transition-colors">
+                        <i class="fab fa-twitter text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-highlight transition-colors">
+                        <i class="fab fa-weibo text-xl"></i>
+                    </a>
+                </div>
+                <p class="text-gray-500 text-sm">
+                    © 2024 PriceScout. All rights reserved. | 技术栈: Python + JavaScript + Chart.js
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        let priceChart = null;
+        let platformChart = null;
+        let currentData = null;
+
+        function formatPrice(price) {
+            return '¥' + parseFloat(price).toFixed(2);
+        }
+
+        function formatSales(sales) {
+            if (sales >= 100000000) {
+                return (sales / 100000000).toFixed(1) + '亿';
+            } else if (sales >= 10000) {
+                return (sales / 10000).toFixed(1) + '万';
+            }
+            return sales.toString();
+        }
+
+        function getPlatformBadge(platform) {
+            const badges = {
+                'jd': '<span class="platform-badge jd-badge">京东</span>',
+                'taobao': '<span class="platform-badge taobao-badge">淘宝</span>',
+                'pdd': '<span class="platform-badge pdd-badge">拼多多</span>'
+            };
+            return badges[platform] || platform;
+        }
+
+        function calculateValueScore(product) {
+            return (product.rating * Math.max(product.sales, 1)) / product.price;
+        }
+
+        async function loadDemoData() {
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            try {
+                const response = await fetch('sample_data.json');
+                currentData = await response.json();
+                displayResults(currentData);
+            } catch (error) {
+                console.error('加载示例数据失败:', error);
+                alert('加载示例数据失败，请确保 sample_data.json 文件存在');
+            }
+
+            document.getElementById('loadingState').classList.add('hidden');
+        }
+
+        async function performSearch() {
+            const keyword = document.getElementById('keywordInput').value.trim();
+            if (!keyword) {
+                alert('请输入搜索关键词');
+                return;
+            }
+
+            document.getElementById('loadingState').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            try {
+                const response = await fetch('sample_data.json');
+                currentData = await response.json();
+                currentData.keyword = keyword;
+                displayResults(currentData);
+            } catch (error) {
+                console.error('搜索失败:', error);
+                alert('搜索失败，请重试');
+            }
+
+            document.getElementById('loadingState').classList.add('hidden');
+        }
+
+        function displayResults(data) {
+            document.getElementById('resultsSection').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('fade-in');
+
+            document.getElementById('totalCount').textContent = data.products.length;
+            document.getElementById('minPrice').textContent = formatPrice(data.statistics.min_price);
+            document.getElementById('maxPrice').textContent = formatPrice(data.statistics.max_price);
+            document.getElementById('avgPrice').textContent = formatPrice(data.statistics.avg_price);
+
+            displayPriceChart(data.price_distribution);
+            displayPlatformChart(data.platform_distribution);
+            displayRecommendations(data.products);
+            displayProductsTable(data.products);
+        }
+
+        function displayPriceChart(distribution) {
+            const ctx = document.getElementById('priceChart').getContext('2d');
+            
+            if (priceChart) {
+                priceChart.destroy();
+            }
+
+            const labels = Object.keys(distribution);
+            const values = Object.values(distribution);
+
+            priceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '商品数量',
+                        data: values,
+                        backgroundColor: [
+                            'rgba(0, 255, 136, 0.7)',
+                            'rgba(0, 217, 255, 0.7)',
+                            'rgba(0, 102, 255, 0.7)',
+                            'rgba(255, 107, 107, 0.7)',
+                            'rgba(255, 0, 128, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(0, 255, 136, 1)',
+                            'rgba(0, 217, 255, 1)',
+                            'rgba(0, 102, 255, 1)',
+                            'rgba(255, 107, 107, 1)',
+                            'rgba(255, 0, 128, 1)'
+                        ],
+                        borderWidth: 2,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayPlatformChart(distribution) {
+            const ctx = document.getElementById('platformChart').getContext('2d');
+            
+            if (platformChart) {
+                platformChart.destroy();
+            }
+
+            const labels = Object.keys(distribution).map(p => {
+                const names = {'jd': '京东', 'taobao': '淘宝', 'pdd': '拼多多'};
+                return names[p] || p;
+            });
+            const values = Object.values(distribution);
+            const colors = [
+                'rgba(255, 68, 68, 0.8)',
+                'rgba(255, 102, 0, 0.8)',
+                'rgba(255, 0, 128, 0.8)'
+            ];
+
+            platformChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors,
+                        borderColor: 'rgba(15, 15, 35, 0.8)',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: 'rgba(255, 255, 255, 0.8)',
+                                padding: 20,
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayRecommendations(products) {
+            const container = document.getElementById('recommendationsContainer');
+            
+            const sorted = [...products].map(p => ({
+                ...p,
+                valueScore: calculateValueScore(p)
+            })).sort((a, b) => b.valueScore - a.valueScore);
+
+            const top3 = sorted.slice(0, 3);
+
+            container.innerHTML = top3.map((product, index) => `
+                <div class="recommendation-card rounded-lg p-6 fade-in" style="animation-delay: ${index * 0.2}s">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-2xl">${index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                            ${getPlatformBadge(product.platform)}
+                        </div>
+                        <div class="text-sm text-success">
+                            性价比: ${product.valueScore.toFixed(1)}
+                        </div>
+                    </div>
+                    <h4 class="font-semibold text-lg mb-3 line-clamp-2">${product.name}</h4>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="price-tag text-2xl text-success">${formatPrice(product.price)}</div>
+                        <div class="text-sm text-gray-400">
+                            <i class="fas fa-star text-yellow-400 mr-1"></i>${product.rating.toFixed(1)}
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between text-sm text-gray-400 mb-4">
+                        <span>销量: ${formatSales(product.sales)}</span>
+                        <span class="truncate max-w-[150px]">${product.store}</span>
+                    </div>
+                    <a href="${product.url}" target="_blank" 
+                       class="block w-full bg-accent/20 hover:bg-accent/30 border border-accent/50 rounded-lg py-2 text-center text-highlight transition-colors">
+                        <i class="fas fa-external-link-alt mr-2"></i>查看详情
+                    </a>
+                </div>
+            `).join('');
+        }
+
+        function displayProductsTable(products) {
+            const tbody = document.getElementById('productsTableBody');
+            
+            const sorted = [...products].sort((a, b) => a.price - b.price);
+
+            tbody.innerHTML = sorted.map(product => `
+                <tr class="table-row transition-colors">
+                    <td class="px-4 py-3">
+                        ${getPlatformBadge(product.platform)}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="max-w-xs truncate" title="${product.name}">${product.name}</div>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="price-tag text-highlight">${formatPrice(product.price)}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right text-gray-300">
+                        ${formatSales(product.sales)}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <span class="text-yellow-400">⭐</span> ${product.rating.toFixed(1)}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="max-w-[150px] truncate text-gray-400" title="${product.store}">
+                            ${product.store}
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <a href="${product.url}" target="_blank" 
+                           class="text-highlight hover:text-white transition-colors mx-1"
+                           title="查看详情">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('keywordInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', function() {
+            loadDemoData();
+        });
+    </script>
+</body>
+</html>
